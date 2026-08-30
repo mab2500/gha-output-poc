@@ -1,0 +1,26 @@
+name: poc-continue-on-error-output-survives-failure
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  poc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: gate sets output THEN fails
+        id: command
+        continue-on-error: true
+        run: |
+          echo "command-name=support" >> "$GITHUB_OUTPUT"
+          echo "Simulating: commenter is NOT admin -> setFailed + exit 1"
+          exit 1
+      - name: downstream gated on OUTPUT (kubeadm-style FAILS OPEN)
+        if: steps.command.outputs.command-name
+        run: echo "REACHED gate failed open; command-name='${{ steps.command.outputs.command-name }}'"
+      - name: downstream gated on OUTCOME (the fix - SKIPPED)
+        if: steps.command.outcome == 'success'
+        run: echo "should NOT run"
+      - name: gate step status
+        if: always()
+        run: |
+          echo "conclusion=${{ steps.command.conclusion }}"
+          echo "outcome=${{ steps.command.outcome }}"
