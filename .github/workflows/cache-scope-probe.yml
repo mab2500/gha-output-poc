@@ -1,0 +1,37 @@
+# Misura due cose che il report MSRC oggi DEDUCE invece di misurare:
+#   (a) un job con `permissions: contents: read` riesce a scrivere nella cache delle Actions?
+#   (b) l'entrata finisce nello scope del ref della run (qui: refs/heads/main)?
+# Nessun rapporto con Azure o Microsoft: gira solo in questo repository.
+name: cache-scope-probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read          # <- la condizione da provare: identica a verify-links.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cosa vede il job
+        run: |
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_REF_NAME=$GITHUB_REF_NAME"
+          echo "ACTIONS_RUNTIME_TOKEN presente: $([ -n "$ACTIONS_RUNTIME_TOKEN" ] && echo SI || echo NO)"
+
+      - name: Prepara un file da mettere in cache
+        run: echo "probe ${{ github.run_id }}" > probe.txt
+
+      - name: Scrivi in cache con contents:read
+        id: salva
+        continue-on-error: true          # se fallisce voglio vederlo, non far cadere il job
+        uses: actions/cache/save@v4
+        with:
+          path: probe.txt
+          key: cache-scope-probe-${{ github.run_id }}
+
+      - name: Esito
+        run: |
+          echo "outcome del save: ${{ steps.salva.outcome }}"
+          echo "chiave attesa: cache-scope-probe-${{ github.run_id }}"
